@@ -88,8 +88,9 @@ class SecondWindow(QWidget):
         self.lay = QVBoxLayout(w)
         
         pixmap = QPixmap()
-        response = requests.get(value['Poster'])
-        pixmap.loadFromData(response.content)
+        if value['Poster'] and value["Poster"] != "N/A":
+            response = requests.get(value['Poster'])
+            pixmap.loadFromData(response.content)
 
         title_label  = QLabel(value.get('Title','Unknown Title'))
         year_label = QLabel(value.get('Year','Unknown Year'))

@@ -43,9 +43,10 @@ class MainWin(MainWindow):
 
         
         self.page2.watched_but.clicked.connect(lambda : self._rating_log("rate"))
+        self.archive_win.add_into_watched.clicked.connect(lambda : self._rating_log("move"))
         self.page2.archive_but.clicked.connect(self._add_into_archive)
     
-        self.archive_win.add_into_watched.clicked.connect(lambda : self._rating_log("move"))
+        
         
 
         self.archive_win.delete_from_db.clicked.connect(lambda: self.db.delete_from_library(self.imdb_id))
@@ -53,17 +54,21 @@ class MainWin(MainWindow):
 
         self.imdb_id = None
         self.imdb_id1 = None
-
+        
+        
 
     def _on_mylist(self):
+
         self.stacked_widget.setCurrentIndex(3)
         data = self.db.list_of_mylist()
         self.load_mylist(data)
+        
 
     def _on_archive(self):
         self.stacked_widget.setCurrentIndex(2)
         data = self.db.list_of_series()
         self.load_archive(data)
+        
         
 
     def _rating_log(self,type=None):
@@ -71,10 +76,13 @@ class MainWin(MainWindow):
         
         if rd.exec():
             self.score = rd.get_value() #  for user rating  after clicked add to w
-        if type == "rate":
+
+
+        if type == "rate" :
             self._add_into_mylist()
-        elif type == "move":
+        elif type == "move" :
             self.add_into_mylist()
+                
             
 
 
@@ -91,33 +99,66 @@ class MainWin(MainWindow):
 
 
     def search(self):
+        self.interaction_type = False
+        
         text = self.searching_lab.text()
         if not text : return  
 
         self.clear_layout(self.scrollayout)
 
 
-        self.api.get_the_data(text,0)
+        self.db_query = self.db.searched_data(text)
+        # text based database query 
+        if self.db_query is not None:
+            # if data not in database we skipping this part (caching)
+            self.whole_m_dict = []
+            for x, y in enumerate(self.db_query):
+                
+                self.movie_dict = {"imdbID" :y[0],
+                              "Title" : y[1],
+                              "Year" : str(y[6]),
+                              "imdbRating": str(y[3]),
+                              "Genre": y[8],
+                              "Poster": y[7]}
+                self.whole_m_dict.append(self.movie_dict)
+    
+                
+                new_widget = self.creating_widget(self.movie_dict,self.movie_dict['imdbRating'])
+                self.scrollayout.addWidget(new_widget)
+                self.title_button.clicked.connect(lambda checked,x=x: self._on_checked(x)) 
+                self.interaction_type = True #controls page2(ui2) functionality
+            self.scrollayout.addStretch()
+            return
         
-        self.scrollayout.addStretch() 
+            
+           
+        
         
 
+
+        self.api.get_the_data(text,0)
+            
+        self.scrollayout.addStretch() 
+            
         if 'Search' in self.api.serie_data:
             limit = 10  # searching data limit
             search_limit = min(len(self.api.serie_data['Search']),limit)  
-            
+                
             for i in range(search_limit):
                 movie_data = self.api.serie_data['Search'][i]
                 movie_rate = self.api.get_the_detail(self.api.serie_data['Search'][i]['Title'])['imdbRating']
+                movie_genre = self.api.get_the_detail(self.api.serie_data['Search'][i]['Title'])['Genre']
+                x = self.db.searched_data_insert_data(movie_data["imdbID"],movie_data["Title"],movie_rate,movie_data["Year"],movie_genre,movie_data['Poster'])
                 
+                    
 
                 new_widget = self.creating_widget(movie_data,movie_rate)
-            
                 
+                    
                 self.scrollayout.addWidget(new_widget)  
 
                 self.title_button.clicked.connect(lambda checked,x=i: self.on_checked(x))   # we need to create a func with lambda cause otherwise we need
-                                                                                            # to create different func for every single + buttons 
+                                                                                                # to create different func for every single + buttons 
 
         self.scrollayout.addStretch()
 
@@ -138,28 +179,57 @@ class MainWin(MainWindow):
                         
     def on_checked(self,x):
         self.info = self.api.get_the_detail(self.api.serie_data['Search'][x]['Title'])
+        
         value = self.page2.creating_serie_info(self.info)
         self.page2.info_layout.addWidget(value) 
         self.stacked_widget.setCurrentIndex(1)
         
+    def _on_checked(self,x):
+        self.info1 = self.whole_m_dict[x]
+        value = self.page2.creating_serie_info(self.info1)
+        self.page2.info_layout.addWidget(value)
+        
 
+        self.stacked_widget.setCurrentIndex(1)
+    
 
-    def _add_into_archive(self): # from search
-        self.db.save_into_library(self.info["imdbID"],self.info["Title"],self.info["imdbRating"],self.info["Genre"],None,0)
-        # different indexs end of the line is make seperate data places for data enterces
+    def _add_into_archive(self): 
+        current_info = self.info1 if self.interaction_type else self.info
+        
+        if current_info:
+            
+            self.db.save_into_library(
+                current_info["imdbID"],
+                current_info["Title"],
+                current_info["imdbRating"],
+                current_info["Genre"],
+                0     
+            )
+    
     def _add_into_mylist(self): # from search
-        self.db.save_into_mylist_from_arc(self.info["imdbID"],self.info["Title"],self.score,self.info["Genre"],None,1) # difference is in mylist u can rate by urslf 
+        self.current_info = self.info1 if self.interaction_type else self.info
+        
+        self.db.save_into_library(self.current_info["imdbID"],self.current_info["Title"],self.score,self.current_info["Genre"],1) #
+        
+       
 
     def get_selection(self,index):
         self.imdb_id = self.archive_model.movies[index.row()][0]
+        
+        
         
     def _get_selection(self,index):
         self.imdb_id1 = self.mylist_model.movies[index.row()][0]
 
 
     def add_into_mylist(self): # from archive
+        
         info = self.db.search_a_series(self.imdb_id)
+
         self.db.save_into_mylist_from_arc(info[0][0],info[0][1],self.score,info[0][2])
+
+        
+
         
 
         
@@ -170,6 +240,7 @@ class MainWin(MainWindow):
     def load_archive(self, data):
         self.archive_model = MovieModel(data)
         self.archive_win.list_view.setModel(self.archive_model)
+        
 
 app = QApplication(sys.argv)
 
