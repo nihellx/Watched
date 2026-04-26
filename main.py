@@ -58,7 +58,7 @@ class MainWin(MainWindow):
         
 
     def _on_mylist(self):
-
+        print(self.db.query)
         self.stacked_widget.setCurrentIndex(3)
         data = self.db.list_of_mylist()
         self.load_mylist(data)

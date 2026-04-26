@@ -86,7 +86,7 @@ class DATABASE(QObject):
                 
         
         imdbid = imdbID
-        self.delete_from_library(imdbid)
+        self.move_to_mylist(imdbid)
 
         self.conn.commit()
 
@@ -103,23 +103,44 @@ class DATABASE(QObject):
     def query(self):
         # self.c.execute("DELETE  FROM data ")
         # self.conn.commit()
-        self.c.execute("SELECT * FROM data WHERE is_archived = 0")
+        self.c.execute("SELECT * FROM data WHERE is_archived = 3")
         data = self.c.fetchall()
         return data
 
 
 
-    def delete_from_library(self,imdbid):
+    def delete_from_library(self,imdbid,is_archived=3):
         if  imdbid is not None:
             imdbID = imdbid
-        
-            self.c.execute("DELETE FROM data WHERE imdbID = ?",(imdbID,))
+
+            
+            
+            self.c.execute("UPDATE data SET is_archived = ? WHERE imdbID = ?",(is_archived,imdbID,))
             self.conn.commit()
+
+            
 
             self.refresh_data.emit()
             self.refresh_data1.emit()
         else:
             return 
+
+    def move_to_mylist(self,imdbid,is_archived=1):
+        if  imdbid is not None:
+            imdbID = imdbid
+
+
+            self.c.execute("UPDATE data SET is_archived = ? WHERE imdbID = ?",(is_archived,imdbID,))
+            self.conn.commit()
+
+            
+
+            self.refresh_data.emit()
+            self.refresh_data1.emit()
+        else:
+            return 
+
+
 
     def search_a_series(self,imdbID):
         self.c.execute("SELECT * FROM data WHERE imdbID = ?",(imdbID,))
