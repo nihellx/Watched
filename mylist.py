@@ -1,6 +1,6 @@
 
-from PyQt5.QtCore import pyqtSignal , QObject
-from PyQt5.QtWidgets import   QLabel , QPushButton ,  QHBoxLayout , QWidget ,  QVBoxLayout , QListView , QDialog , QDoubleSpinBox
+from PyQt5.QtCore import pyqtSignal 
+from PyQt5.QtWidgets import   QLabel , QPushButton ,  QHBoxLayout , QWidget ,  QVBoxLayout , QListView , QLineEdit
 from PyQt5.QtGui import QPixmap
 
 
@@ -19,13 +19,24 @@ class MyList(QWidget):
         self.main_layout.addWidget(self.to_main_page)
         self.info_layout = QVBoxLayout()
 
+
+        self.search_lab = QLineEdit()
+
         self.list_view = QListView()
 
+        self.main_layout.addWidget(self.search_lab)
         self.main_layout.addWidget(self.list_view)
         
         self.main_layout.addLayout(self.info_layout)
 
         
+        self.search_lab.setStyleSheet("""
+                QLineEdit   {
+                    font-size: 15px;                     
+                    background: #719ed1;
+                    color: white;                     
+                }
+         """)
         self.list_view.setStyleSheet("""
         QListView {
         background-color: #4256d4;  
@@ -80,6 +91,9 @@ class MyList(QWidget):
         self.image_label.setPixmap(pixmap)
         self.image_label.setScaledContents(True)
         self.image_label.lower()
+
+        
+
 
         self.to_main_page.setProperty("class","buttons")
 

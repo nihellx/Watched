@@ -6,7 +6,7 @@ from mylist import MyList
 from sqlite import DATABASE
 from archive import ArchiveWin , RatingDialog
 from PyQt5.QtWidgets import QApplication 
-from PyQt5.QtCore import QTimer 
+from PyQt5.QtCore import QTimer , QSortFilterProxyModel, Qt
 
 
 class MainWin(MainWindow):
@@ -28,6 +28,7 @@ class MainWin(MainWindow):
         self.db.refresh_data1.connect(lambda:self.load_mylist(self.db.list_of_mylist()))
 
         
+
         self.stacked_widget.addWidget(self.page2)
         self.stacked_widget.addWidget(self.archive_win)
         self.stacked_widget.addWidget(self.ml)
@@ -232,9 +233,13 @@ class MainWin(MainWindow):
         
         
     def _get_selection(self,index):
-        self.imdb_id1 = self.mylist_model.movies[index.row()][0]
+        
+        r_index = self.proxy_model.mapToSource(index)
+        #we have to map the proxy index back to the source index 
+        #cause after search list is gettin narrowed down and  view indexes  does not match
+        self.imdb_id1 = self.mylist_model.movies[r_index.row()][0]
 
-
+    
     def add_into_mylist(self): # from archive
         
         info = self.db.search_a_series(self.imdb_id)
@@ -247,7 +252,15 @@ class MainWin(MainWindow):
         
     def load_mylist(self, data):
         self.mylist_model = MovieModel(data)
-        self.ml.list_view.setModel(self.mylist_model)
+
+
+        self.proxy_model = QSortFilterProxyModel() # for searching we have to change the indexing in mylist
+        self.proxy_model.setSourceModel(self.mylist_model)
+        #not-case sensetive
+        self.proxy_model.setFilterCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        self.ml.search_lab.textChanged.connect(self.proxy_model.setFilterFixedString)
+
+        self.ml.list_view.setModel(self.proxy_model)
 
     def load_archive(self, data):
         self.archive_model = MovieModel(data)
