@@ -58,15 +58,18 @@ class MainWin(MainWindow):
         
 
     def _on_mylist(self):
-        print(self.db.query)
+        # x =self.db.query()
+        # print(x)
         self.stacked_widget.setCurrentIndex(3)
         data = self.db.list_of_mylist()
+        
         self.load_mylist(data)
         
 
     def _on_archive(self):
         self.stacked_widget.setCurrentIndex(2)
         data = self.db.list_of_series()
+        
         self.load_archive(data)
         
         
@@ -74,21 +77,23 @@ class MainWin(MainWindow):
     def _rating_log(self,type=None):
         rd = RatingDialog()
         
-        if rd.exec():
-            self.score = rd.get_value() #  for user rating  after clicked add to w
+        if not rd.exec():
+            return
+        
+        self.score = rd.get_value() #  for user rating  after clicked add to w
 
 
-        if type == "rate" :
+        if type == "rate" : # directly to mylist 
             self._add_into_mylist()
         elif type == "move" :
-            self.add_into_mylist()
+            self.add_into_mylist() #move archive to mylist
                 
             
 
 
     def _on_watched(self):
         self.timer = QTimer()
-        self.timer.setInterval(1000)   # 1 sec timer
+        self.timer.setInterval(1000)   #after every single word is written starting this timer end of the timer emitting the search
         self.timer.setSingleShot(True) #oneshot
 
         self.creating_linedit("search")              
@@ -111,17 +116,21 @@ class MainWin(MainWindow):
         # text based database query 
         if self.db_query is not None:
             # if data not in database we skipping this part (caching)
+            
             self.whole_m_dict = []
             for x, y in enumerate(self.db_query):
                 
                 self.movie_dict = {"imdbID" :y[0],
                               "Title" : y[1],
                               "Year" : str(y[6]),
-                              "imdbRating": str(y[3]),
+                              "Rating": str(y[3]),
                               "Genre": y[8],
-                              "Poster": y[7]}
+                              "imdbRating" : str(y[9]),
+                              "Poster": y[7]
+                              }
                 self.whole_m_dict.append(self.movie_dict)
-    
+                
+                
                 
                 new_widget = self.creating_widget(self.movie_dict,self.movie_dict['imdbRating'])
                 self.scrollayout.addWidget(new_widget)
@@ -146,9 +155,12 @@ class MainWin(MainWindow):
                 
             for i in range(search_limit):
                 movie_data = self.api.serie_data['Search'][i]
+    
                 movie_rate = self.api.get_the_detail(self.api.serie_data['Search'][i]['Title'])['imdbRating']
                 movie_genre = self.api.get_the_detail(self.api.serie_data['Search'][i]['Title'])['Genre']
-                x = self.db.searched_data_insert_data(movie_data["imdbID"],movie_data["Title"],movie_rate,movie_data["Year"],movie_genre,movie_data['Poster'])
+                
+
+                x = self.db.searched_data_insert_data(movie_data["imdbID"],movie_data["Title"],movie_rate,movie_data["Year"],movie_genre,movie_rate,movie_data['Poster'])
                 
                     
 
@@ -195,26 +207,27 @@ class MainWin(MainWindow):
 
     def _add_into_archive(self): 
         current_info = self.info1 if self.interaction_type else self.info
-        
         if current_info:
-            
             self.db.save_into_library(
                 current_info["imdbID"],
                 current_info["Title"],
                 current_info["imdbRating"],
+                None,
                 current_info["Genre"],
                 0     
             )
+
     
     def _add_into_mylist(self): # from search
         self.current_info = self.info1 if self.interaction_type else self.info
-        
-        self.db.save_into_library(self.current_info["imdbID"],self.current_info["Title"],self.score,self.current_info["Genre"],1) #
+        self.current_rating = self.current_info["Rating"] if self.interaction_type else self.current_info["imdbRating"]
+        self.db.save_into_library(self.current_info["imdbID"],self.current_info["Title"],self.score,self.current_rating,self.current_info["Genre"],1) #
         
        
 
     def get_selection(self,index):
         self.imdb_id = self.archive_model.movies[index.row()][0]
+        
         
         
         
@@ -225,9 +238,8 @@ class MainWin(MainWindow):
     def add_into_mylist(self): # from archive
         
         info = self.db.search_a_series(self.imdb_id)
-
         self.db.save_into_mylist_from_arc(info[0][0],info[0][1],self.score,info[0][2])
-
+        
         
 
         

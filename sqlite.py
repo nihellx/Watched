@@ -20,7 +20,7 @@ class DATABASE(QObject):
         self.main_w = main
 
         
-    def create_table(self): # image_url exist in table
+    def create_table(self): # image_url exist in table + imdb_rating. difference is between rating and imdb_rating is rating taking by user
         self.c.execute("""CREATE TABLE IF NOT EXISTS data(
                 imdbID TEXT PRIMARY KEY, 
                 title TEXT NOT NULL,
@@ -33,31 +33,28 @@ class DATABASE(QObject):
             )""") 
         self.conn.commit()
 
-    def save_into_library(self, imdbID, title, rating, type,is_archived=0):
+    def save_into_library(self, imdbID, title, rating,imdb_rating, genre,is_archived=0): #directly to library
             self.c.execute("SELECT * FROM data WHERE imdbID = ?", (imdbID,))
             
-            if self.c.fetchone() is None:
-                self.c.execute("INSERT INTO data (imdbID, title, rating ,type, is_archived) VALUES (?, ?, ?, ? , ?)",
-                            (imdbID, title, rating, type,is_archived))
-                self.conn.commit()
-            else: # if data is exist we updating just in case to prevent any bug-crush
-                self.c.execute("""
-                    UPDATE data
-                    SET title = ?, rating = ?, type = ?, is_archived = ?
-                    WHERE imdbID = ?
-                """, (title, rating, type,is_archived, imdbID))
+            self.c.execute("""
+                INSERT INTO data (imdbID, title, rating, imdb_rating, type, is_archived)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(imdbID) DO UPDATE SET title = excluded.title, rating = excluded.rating,  type = excluded.type, is_archived = excluded.is_archived
+                """,
+             (imdbID, title, rating, imdb_rating, genre, is_archived))
+
             
             self.conn.commit()
 
-    def searched_data_insert_data(self,imdbID,title,rating,year,genre,poster,is_archived=3): # for caching
+    def searched_data_insert_data(self,imdbID,title,rating,year,genre,imdb_rating,image_url,is_archived=3): # for caching
         self.c.execute("SELECT * FROM data WHERE title = ? AND is_archived = ?",(title ,is_archived,))
         result = self.c.fetchone()
-
         if result is not None:   
             self.c.execute("SELECT * FROM data WHERE title = ? and is_archived = 3",(title,))
             return self.c.fetchall()
         
-        self.c.execute("INSERT INTO data (imdbID,title,rating,year,genre,image_url,is_archived) VALUES (?,?, ?, ?, ?, ?, ?)",(imdbID,title,rating,year,genre,poster,is_archived,))
+        self.c.execute("INSERT INTO data (imdbID,title,rating,year,genre,imdb_rating,image_url,is_archived) VALUES (? , ? , ? , ? , ? , ? , ? , ?)",
+                       (imdbID,title,rating,year,genre,imdb_rating,image_url,is_archived,))
         self.conn.commit()
 
 
@@ -86,8 +83,10 @@ class DATABASE(QObject):
                 
         
         imdbid = imdbID
+        
         self.move_to_mylist(imdbid)
-
+        
+        
         self.conn.commit()
 
         self.refresh_data1.emit()
@@ -98,11 +97,14 @@ class DATABASE(QObject):
             self.c.execute("INSERT INTO data (imdbID, title,  rating ,genre, episode,is_archived) VALUES (?, ?, ?, ? , ?, ? )",
                             (imdbID, title, rating, genre,episode,is_archived))
             self.conn.commit()
-
+        else:
+            self.c.execute("UPDATE data SET rating = ? WHERE imdbID = ? ",(rating,imdbID,))
+            self.conn.commit()
 
     def query(self):
         # self.c.execute("DELETE  FROM data ")
         # self.conn.commit()
+        
         self.c.execute("SELECT * FROM data WHERE is_archived = 3")
         data = self.c.fetchall()
         return data
@@ -110,35 +112,32 @@ class DATABASE(QObject):
 
 
     def delete_from_library(self,imdbid,is_archived=3):
-        if  imdbid is not None:
-            imdbID = imdbid
+        if  imdbid is None:
+
+            return
+
+        self.query()
+        #instead of deleting the data we are changing their places for better caching 
+        self.c.execute("UPDATE data SET is_archived = ?   WHERE imdbID = ?",(is_archived,imdbid,))
+        self.conn.commit()
 
             
-            
-            self.c.execute("UPDATE data SET is_archived = ? WHERE imdbID = ?",(is_archived,imdbID,))
-            self.conn.commit()
 
-            
-
-            self.refresh_data.emit()
-            self.refresh_data1.emit()
-        else:
-            return 
+        self.refresh_data.emit()
+        self.refresh_data1.emit()
 
     def move_to_mylist(self,imdbid,is_archived=1):
-        if  imdbid is not None:
-            imdbID = imdbid
+        if  imdbid is None:
+            return
 
-
-            self.c.execute("UPDATE data SET is_archived = ? WHERE imdbID = ?",(is_archived,imdbID,))
-            self.conn.commit()
+        #instead of deleting the data we are changing their places for better caching 
+        self.c.execute("UPDATE data SET is_archived = ? WHERE imdbID = ?",(is_archived,imdbid,))
+        self.conn.commit()
 
             
 
-            self.refresh_data.emit()
-            self.refresh_data1.emit()
-        else:
-            return 
+        self.refresh_data.emit()
+        self.refresh_data1.emit()
 
 
 
